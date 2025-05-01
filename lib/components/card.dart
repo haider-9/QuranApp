@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+
 
 class Item {
   final String title;
@@ -52,7 +54,7 @@ List<Item> items = [
         'Share verses, translations, and reflections with family and friends through multiple platforms.',
     icon: Icons.share_rounded,
     buttonText: 'Share Now',
-    link: '/share',
+    link: '/share-link',
     color: Colors.amber.shade800,
     additionalInfo: 'Easy social media integration',
   ),
@@ -124,7 +126,7 @@ class EnhancedCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            Navigator.pushNamed(context, item.link);
+            _handleCardAction(context);
           },
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -224,7 +226,7 @@ class EnhancedCard extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, item.link);
+                      _handleCardAction(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: item.color ?? Colors.indigo,
@@ -251,5 +253,25 @@ class EnhancedCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _handleCardAction(BuildContext context) async {
+    // Special handling for the Share Insights card
+    if (item.title == 'Share Insights') {
+      try {
+        // Import at the top of the file: import 'package:share_plus/share_plus.dart';
+        await Share.share(
+          'Check out this amazing Quran App! It offers reading, audio recitations, and more for your spiritual journey.',
+          subject: 'Quran App - Spiritual Guidance',
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    } else {
+      // For other cards, navigate to the specified route
+      Navigator.pushNamed(context, item.link);
+    }
   }
 }
