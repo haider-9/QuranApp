@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class AudioPage extends StatefulWidget {
-  const AudioPage({Key? key}) : super(key: key);
+  const AudioPage({super.key});
 
   @override
   _AudioPageState createState() => _AudioPageState();
@@ -13,7 +13,6 @@ class AudioPage extends StatefulWidget {
 class _AudioPageState extends State<AudioPage> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
-  String _currentLanguage = 'English';
   String _currentRecitationUrl = '';
   String _currentRecitationTitle = '';
   Duration _duration = Duration.zero;
@@ -21,12 +20,16 @@ class _AudioPageState extends State<AudioPage> {
   bool _isLoading = false;
   List<Map<String, dynamic>> _recitations = [];
 
-  // API endpoints
-  final Map<String, String> _apiEndpoints = {
-    'English': 'https://api.quran.com/api/v4/chapter_recitations/7',
-    'Arabic': 'https://api.quran.com/api/v4/chapter_recitations/1',
-    'Urdu': 'https://api.quran.com/api/v4/resources/translations/95',
-  };
+  // Colors from surah.dart
+  final Color backgroundColor = const Color(0xFFECFDF5);
+  final Color primaryColor = const Color(0xFF1E4B6C);
+  final Color accentColor = const Color(0xFF10B981);
+
+  // API endpoint for Arabic recitations
+  final String _audioEndpoint =
+      'https://api.quran.com/api/v4/chapter_recitations/2';
+  // New endpoint for fetching surah names
+  final String _surahNamesEndpoint = 'http://api.alquran.cloud/v1/surah';
 
   @override
   void initState() {
@@ -53,7 +56,7 @@ class _AudioPageState extends State<AudioPage> {
     });
 
     // Fetch initial recitations
-    _fetchRecitations(_currentLanguage);
+    _fetchRecitations();
   }
 
   @override
@@ -62,84 +65,75 @@ class _AudioPageState extends State<AudioPage> {
     super.dispose();
   }
 
-  Future<void> _fetchRecitations(String language) async {
+  Future<void> _fetchRecitations() async {
     setState(() {
       _isLoading = true;
       _recitations = []; // Clear previous recitations
     });
 
     try {
-      final endpoint = _apiEndpoints[language] ?? '';
-      if (endpoint.isEmpty) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final response = await http.get(
-        Uri.parse(endpoint),
+      // First fetch surah names from alquran.cloud API
+      final surahResponse = await http.get(
+        Uri.parse(_surahNamesEndpoint),
         headers: {'Accept': 'application/json'},
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        List<Map<String, dynamic>> parsedRecitations = [];
+      if (surahResponse.statusCode != 200) {
+        throw Exception('Failed to load surah names');
+      }
 
-        if (language == 'English') {
-          // Parse English recitations from Quran.com API
-          final audioFiles = data['audio_files'] as List;
-          parsedRecitations =
-              audioFiles.map((file) {
-                return {
-                  'id': file['id'].toString(),
-                  'title':
-                      'Surah ${file['chapter_id']} - ${file['reciter_name']}',
-                  'url': file['audio_url'],
-                  'duration': _formatDuration(
-                    Duration(seconds: file['duration'] ?? 0),
-                  ),
-                  'author': file['reciter_name'],
-                };
-              }).toList();
-        } else if (language == 'Arabic') {
-          // Parse Arabic recitations from Quran.com API
-          final audioFiles = data['audio_files'] as List;
-          parsedRecitations =
-              audioFiles.map((file) {
-                return {
-                  'id': file['id'].toString(),
-                  'title':
-                      'سورة ${file['chapter_id']} - ${file['reciter_name']}',
-                  'url': file['audio_url'],
-                  'duration': _formatDuration(
-                    Duration(seconds: file['duration'] ?? 0),
-                  ),
-                  'author': file['reciter_name'],
-                };
-              }).toList();
-        } else if (language == 'Urdu') {
-          // Parse Urdu translations from Quran.com API
-          final translations = data['translations'] as List;
-          parsedRecitations =
-              translations.map((translation) {
-                return {
-                  'id': translation['id'].toString(),
-                  'title': translation['name'],
-                  'url': translation['audio_url'] ?? '',
-                  'duration': 'N/A',
-                  'author': translation['author_name'],
-                };
-              }).toList();
-        }
+      final surahData = json.decode(surahResponse.body);
+      final List<dynamic> surahs = surahData['data'];
 
-        setState(() {
-          _recitations = parsedRecitations;
-          _isLoading = false;
-        });
-      } else {
+      // Map of surah IDs to names
+      Map<int, Map<String, String>> surahNames = {};
+      for (var surah in surahs) {
+        surahNames[surah['number']] = {
+          'name': surah['name'],
+          'englishName': surah['englishName'],
+        };
+      }
+
+      // Now fetch audio recitations from quran.com API
+      final response = await http.get(
+        Uri.parse(_audioEndpoint),
+        headers: {'Accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
         throw Exception('Failed to load recitations');
       }
+
+      final data = json.decode(response.body);
+      List<Map<String, dynamic>> parsedRecitations = [];
+
+      // Parse Arabic recitations from Quran.com API
+      final audioFiles = data['audio_files'] as List;
+      for (var file in audioFiles) {
+        final chapterId = file['chapter_id'];
+        if (surahNames.containsKey(chapterId)) {
+          parsedRecitations.add({
+            'id': file['id'].toString(),
+            'title':
+                '${surahNames[chapterId]!['name']} - ${surahNames[chapterId]!['englishName']}',
+            'url': file['audio_url'],
+            'duration': _formatDuration(
+              Duration(seconds: file['duration'] ?? 0),
+            ),
+            'author': file['reciter_name'],
+            'chapter_id': chapterId,
+          });
+        }
+      }
+
+      parsedRecitations.sort(
+        (a, b) => a['chapter_id'].compareTo(b['chapter_id']),
+      );
+
+      setState(() {
+        _recitations = parsedRecitations;
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error fetching recitations: $e');
       setState(() {
@@ -204,29 +198,28 @@ class _AudioPageState extends State<AudioPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quran Recitations')),
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: const Text('Quran Recitations'),
+        backgroundColor: primaryColor,
+        elevation: 0,
+      ),
       body: Column(
         children: [
-          // Language selector
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _languageButton('English'),
-                _languageButton('Arabic'),
-                _languageButton('Urdu'),
-              ],
-            ),
-          ),
-
           // Recitation list
           Expanded(
             child:
                 _isLoading
-                    ? Center(child: CircularProgressIndicator())
+                    ? Center(
+                      child: CircularProgressIndicator(color: primaryColor),
+                    )
                     : _recitations.isEmpty
-                    ? Center(child: Text('No recitations available'))
+                    ? Center(
+                      child: Text(
+                        'No recitations available',
+                        style: TextStyle(color: primaryColor),
+                      ),
+                    )
                     : ListView.builder(
                       itemCount: _recitations.length,
                       itemBuilder: (context, index) {
@@ -234,30 +227,90 @@ class _AudioPageState extends State<AudioPage> {
                         final isSelected =
                             _currentRecitationUrl == recitation['url'];
 
-                        return ListTile(
-                          title: Text(recitation['title']),
-                          subtitle: Text(recitation['author'] ?? ''),
-                          leading: Icon(Icons.audio_file),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(recitation['duration'] ?? ''),
-                              SizedBox(width: 8),
-                              isSelected && _isPlaying
-                                  ? Icon(
-                                    Icons.pause,
-                                    color: Theme.of(context).primaryColor,
-                                  )
-                                  : Icon(Icons.play_arrow),
-                            ],
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                          selected: isSelected,
-                          onTap: () {
-                            _playRecitation(
-                              recitation['url'],
+                          color:
+                              isSelected
+                                  ? primaryColor.withOpacity(0.1)
+                                  : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                            side: BorderSide(
+                              color:
+                                  isSelected
+                                      ? accentColor
+                                      : Colors.grey.withOpacity(0.2),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          elevation: isSelected ? 4 : 1,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            title: Text(
                               recitation['title'],
-                            );
-                          },
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              recitation['author'] ?? '',
+                              style: TextStyle(
+                                color: primaryColor.withOpacity(0.7),
+                              ),
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color:
+                                    isSelected
+                                        ? accentColor.withOpacity(0.2)
+                                        : primaryColor.withOpacity(0.1),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${recitation['chapter_id']}',
+                                  style: TextStyle(
+                                    color:
+                                        isSelected ? accentColor : primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  recitation['duration'] ?? '',
+                                  style: TextStyle(
+                                    color: primaryColor.withOpacity(0.7),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Icon(
+                                  isSelected && _isPlaying
+                                      ? Icons.pause_circle_filled
+                                      : Icons.play_circle_filled,
+                                  color:
+                                      isSelected ? accentColor : primaryColor,
+                                  size: 28,
+                                ),
+                              ],
+                            ),
+                            selected: isSelected,
+                            onTap: () {
+                              _playRecitation(
+                                recitation['url'],
+                                recitation['title'],
+                              );
+                            },
+                          ),
                         );
                       },
                     ),
@@ -267,38 +320,59 @@ class _AudioPageState extends State<AudioPage> {
           if (_currentRecitationUrl.isNotEmpty)
             Container(
               padding: const EdgeInsets.all(16.0),
-              color: Colors.grey[200],
+              color: primaryColor.withOpacity(0.1),
               child: Column(
                 children: [
                   Text(
                     _currentRecitationTitle,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: primaryColor,
+                    ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 8),
-                  Slider(
-                    value: _position.inSeconds.toDouble(),
-                    max:
-                        _duration.inSeconds.toDouble() == 0
-                            ? 1
-                            : _duration.inSeconds.toDouble(),
-                    onChanged: (value) async {
-                      final position = Duration(seconds: value.toInt());
-                      await _audioPlayer.seek(position);
-                      setState(() {
-                        _position = position;
-                      });
-                    },
+                  SliderTheme(
+                    data: SliderThemeData(
+                      thumbColor: accentColor,
+                      activeTrackColor: accentColor,
+                      inactiveTrackColor: primaryColor.withOpacity(0.2),
+                    ),
+                    child: Slider(
+                      value: _position.inSeconds.toDouble(),
+                      max:
+                          _duration.inSeconds.toDouble() == 0
+                              ? 1
+                              : _duration.inSeconds.toDouble(),
+                      onChanged: (value) async {
+                        final position = Duration(seconds: value.toInt());
+                        await _audioPlayer.seek(position);
+                        setState(() {
+                          _position = position;
+                        });
+                      },
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_formatDuration(_position)),
-                        Text(_formatDuration(_duration)),
+                        Text(
+                          _formatDuration(_position),
+                          style: TextStyle(
+                            color: primaryColor.withOpacity(0.7),
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(_duration),
+                          style: TextStyle(
+                            color: primaryColor.withOpacity(0.7),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -306,7 +380,7 @@ class _AudioPageState extends State<AudioPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.replay_10),
+                        icon: Icon(Icons.replay_10, color: primaryColor),
                         onPressed: () async {
                           final newPosition = Duration(
                             seconds: (_position.inSeconds - 10).clamp(
@@ -323,6 +397,7 @@ class _AudioPageState extends State<AudioPage> {
                           _isPlaying
                               ? Icons.pause_circle_filled
                               : Icons.play_circle_filled,
+                          color: accentColor,
                         ),
                         onPressed: () {
                           if (_isPlaying) {
@@ -339,7 +414,7 @@ class _AudioPageState extends State<AudioPage> {
                         },
                       ),
                       IconButton(
-                        icon: Icon(Icons.forward_10),
+                        icon: Icon(Icons.forward_10, color: primaryColor),
                         onPressed: () async {
                           final newPosition = Duration(
                             seconds: (_position.inSeconds + 10).clamp(
@@ -357,30 +432,6 @@ class _AudioPageState extends State<AudioPage> {
             ),
         ],
       ),
-    );
-  }
-
-  Widget _languageButton(String language) {
-    final isSelected = _currentLanguage == language;
-
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor:
-            isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-        foregroundColor: isSelected ? Colors.white : Colors.black,
-      ),
-      onPressed: () {
-        if (_currentLanguage != language) {
-          setState(() {
-            _currentLanguage = language;
-            _currentRecitationUrl = '';
-            _currentRecitationTitle = '';
-          });
-          _audioPlayer.stop();
-          _fetchRecitations(language);
-        }
-      },
-      child: Text(language),
     );
   }
 }

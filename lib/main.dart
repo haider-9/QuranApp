@@ -1,7 +1,6 @@
 import 'package:my_app/pages/home.dart' as HomePage;
 import 'package:flutter/material.dart';
 import 'package:my_app/pages/reading.dart' as Reading;
-import 'package:my_app/pages/quran_editions.dart' as edition;
 import 'package:my_app/pages/audio.dart' as audio;
 
 void main() {
@@ -19,13 +18,21 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const HomePage.HomePage(),
         '/read': (context) => const Reading.ItemList(),
-        '/quran_editions':
-            (context) => const edition.QuranViewPage(edition: 'quran-uthmani'),
         '/audio': (context) => const audio.AudioPage(),
       },
       theme: ThemeData(
         fontFamily: 'Poppins',
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        scaffoldBackgroundColor: Color(0xFFECFDF5),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Color(0xFF1E4B6C),
+          foregroundColor: Colors.white,
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        textTheme: TextTheme(bodyMedium: TextStyle(color: Color(0xFF065F46))),
         useMaterial3: true,
       ),
     );

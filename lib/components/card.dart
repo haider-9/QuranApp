@@ -56,17 +56,7 @@ List<Item> items = [
     color: Colors.amber.shade800,
     additionalInfo: 'Easy social media integration',
   ),
-  Item(
-    title: 'Uthmani Quran',
-    subtitle: 'Read the Quran in Uthmani Script',
-    description:
-        'Experience the Quran in its original script with Arabic text and transliteration.',
-    icon: Icons.notifications_active_rounded,
-    buttonText: 'Start Reading',
-    link: '/quran_editions',
-    color: Colors.deepPurple.shade700,
-    additionalInfo: 'Customizable notification schedule',
-  ),
+
 ];
 
 class ItemList extends StatelessWidget {
