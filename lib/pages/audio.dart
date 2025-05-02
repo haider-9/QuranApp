@@ -20,14 +20,27 @@ class _AudioPageState extends State<AudioPage> {
   bool _isLoading = false;
   List<Map<String, dynamic>> _recitations = [];
 
+  // Selected reciter ID
+  int _selectedReciterId = 2;
+
+  // List of available reciters
+  final List<Map<String, dynamic>> _reciters = [
+    {'id': 7, 'name': 'Mishary Rashid Alafasy'},
+    {'id': 3, 'name': 'Abdul Rahman Al-Sudais'},
+    {'id': 2, 'name': 'Abdul Basit Abdul Samad'},
+    {'id': 6, 'name': 'Mahmoud Khalil Al-Husary'},
+    {'id': 9, 'name': 'Siddiq Al-Mishawi'},
+  ];
+
   // Colors from surah.dart
   final Color backgroundColor = const Color(0xFFECFDF5);
   final Color primaryColor = const Color(0xFF1E4B6C);
   final Color accentColor = const Color(0xFF10B981);
 
-  // API endpoint for Arabic recitations
-  final String _audioEndpoint =
-      'https://api.quran.com/api/v4/chapter_recitations/2';
+  // API endpoint for Arabic recitations (will be formatted with reciter ID)
+  final String _audioEndpointTemplate =
+      'https://api.quran.com/api/v4/chapter_recitations/';
+
   // New endpoint for fetching surah names
   final String _surahNamesEndpoint = 'http://api.alquran.cloud/v1/surah';
 
@@ -94,7 +107,10 @@ class _AudioPageState extends State<AudioPage> {
         };
       }
 
-      // Now fetch audio recitations from quran.com API
+      // Now fetch audio recitations from quran.com API with selected reciter
+      final String _audioEndpoint =
+          _audioEndpointTemplate + _selectedReciterId.toString();
+
       final response = await http.get(
         Uri.parse(_audioEndpoint),
         headers: {'Accept': 'application/json'},
@@ -206,6 +222,63 @@ class _AudioPageState extends State<AudioPage> {
       ),
       body: Column(
         children: [
+          // Reciter selection dropdown
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            color: primaryColor.withOpacity(0.1),
+            child: Row(
+              children: [
+                Text(
+                  'Select Reciter:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: primaryColor.withOpacity(0.3)),
+                    ),
+                    child: DropdownButton<int>(
+                      value: _selectedReciterId,
+                      isExpanded: true,
+                      underline: SizedBox(),
+                      icon: Icon(Icons.arrow_drop_down, color: primaryColor),
+                      items:
+                          _reciters.map((reciter) {
+                            return DropdownMenuItem<int>(
+                              value: reciter['id'],
+                              child: Text(reciter['name']),
+                            );
+                          }).toList(),
+                      onChanged: (int? newValue) {
+                        if (newValue != null &&
+                            newValue != _selectedReciterId) {
+                          setState(() {
+                            _selectedReciterId = newValue;
+                            // Stop current playback when changing reciter
+                            if (_isPlaying) {
+                              _audioPlayer.stop();
+                              _isPlaying = false;
+                              _currentRecitationUrl = '';
+                              _currentRecitationTitle = '';
+                            }
+                          });
+                          _fetchRecitations();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Recitation list
           Expanded(
             child:

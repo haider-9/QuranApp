@@ -8,6 +8,11 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFFECFDF5),
+      appBar: AppBar(
+        title: const Text('Quran App'),
+        backgroundColor: Color(0xFF1E4B6C),
+        elevation: 0,
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
