@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
-
 class Item {
   final String title;
   final String subtitle;
@@ -58,7 +57,6 @@ List<Item> items = [
     color: Colors.amber.shade800,
     additionalInfo: 'Easy social media integration',
   ),
-
 ];
 
 class ItemList extends StatelessWidget {
@@ -103,22 +101,7 @@ class EnhancedCard extends StatelessWidget {
         minHeight: 320,
         maxWidth: 400, // Maximum width for very large screens
       ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (item.color ?? Colors.indigo).withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+
       child: Material(
         borderRadius: BorderRadius.circular(20),
         color: Colors.white,
@@ -265,9 +248,9 @@ class EnhancedCard extends StatelessWidget {
           subject: 'Quran App - Spiritual Guidance',
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not share: $e')));
       }
     } else {
       // For other cards, navigate to the specified route

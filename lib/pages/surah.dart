@@ -79,7 +79,6 @@ Future<SurahDetails> fetchSurahDetails(String surahId) async {
       final audioFiles = audioData['audio_files'] as List;
       for (var file in audioFiles) {
         if (file['verse_key'] != null) {
-          
           final verseNumber =
               int.tryParse(file['verse_key'].toString().split(':').last) ?? 0;
           if (verseNumber > 0) {
